@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import ReactGA from 'react-ga4';
-import { useAccount } from 'wagmi';
+import { useAccount, useBalance} from 'wagmi';
+import { formatUnits } from 'viem';
 import classNames from 'classnames';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import Jazzicon, { jsNumberForAddress } from 'react-jazzicon';
@@ -14,10 +15,28 @@ import { useLogoutCallback } from '@/hooks/user';
 function Web3StatusInner() {
   const { address, connector } = useAccount();
   const { data: balance } = useBABTBalanceOf({ address });
+  const { data: nativeBalance } = useBalance({
+    address: address,
+    watch: true,
+  });
   const gamerEmailInfo = useRecoilValue(gamerEmailInfoAtom);
   const setIsBABTHolder = useSetRecoilState(isBABTHolderAtom);
   const isBABTHolder = useMemo(() => !!(balance && balance.toString() !== '0'), [balance]);
   const logout = useLogoutCallback();
+
+  const formattedBalance = useMemo(() => {
+    if (!nativeBalance) return null;
+    
+    try {
+      const balanceInEther = formatUnits(nativeBalance.value, nativeBalance.decimals);
+      const numericBalance = parseFloat(balanceInEther);
+      const formatted = numericBalance.toFixed(4);
+      return `${formatted} ${nativeBalance.symbol}`;
+    } catch (error) {
+      console.error('Error formatting balance:', error);
+      return null;
+    }
+  }, [nativeBalance]);
 
   useEffect(() => {
     if (!address) return;
@@ -62,7 +81,17 @@ function Web3StatusInner() {
             isBABTHolder && 'overflow-hidden rounded-full bg-gradient-babt',
           )}
         >
-          <p className={classNames(isBABTHolder && 'font-medium text-black')}>{shortenAddress(address)}</p>
+          <div className="flex flex-col items-end">
+            <p className={classNames(isBABTHolder && 'font-medium text-black')}>{shortenAddress(address)}</p>
+            {formattedBalance && (
+              <p className={classNames(
+                'text-xs opacity-75',
+                isBABTHolder ? 'text-black' : 'text-gray-300'
+              )}>
+                {formattedBalance}
+              </p>
+            )}
+          </div>
           <div className="ml-3 h-6.5 w-6.5 overflow-hidden rounded-full border border-white bg-p12-gradient sm:hidden">
             {isBABTHolder ? (
               <img
